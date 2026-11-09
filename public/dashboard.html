@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyGeng: Find Your People. Learn Together.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="app">
+
+  <!-- TOP APPBAR -->
+  <header class="appbar">
+    <div class="brand-wrap">
+      <span class="logo">Study<b>Geng</b></span>
+      <span class="tagline hide-mobile">Find your people. Learn together.</span>
+    </div>
+
+    <!-- AUTO DETECTED TIME ZONE & LIVE CLOCK -->
+    <div class="tz-widget" id="tz-widget" title="Zona waktu otomatis terdeteksi dari perangkatmu">
+      <div class="tz-pulse">
+        <span class="pulse-indicator" aria-hidden="true"></span>
+        <span class="tz-digital" id="tz-clock">--:--:--</span>
+        <span class="tz-period" id="tz-period">WIB</span>
+      </div>
+      <div class="tz-meta">
+        <span class="tz-location" id="tz-city">Mendeteksi zona waktu...</span>
+        <span class="tz-badge-auto"><span class="icon-pulse"></span> Auto Timezone</span>
+      </div>
+    </div>
+
+    <!-- USER CONTROLS -->
+    <div class="who">
+      <span id="badge"></span>
+      <div class="user-chip" id="user-chip" title="Profil kamu">
+        <div class="user-avatar" id="u-avatar">SG</div>
+        <span class="user-name" id="u-name">Memuat...</span>
+      </div>
+      <button class="btn ghost sm btn-logout" id="logout" type="button" title="Keluar dari akun">
+        Keluar
+      </button>
+    </div>
+  </header>
+
+  <!-- NAVBAR / ICONS BAR (6 MENU BERDASARKAN FILE XLSX DENGAN IKON LUCIDE) -->
+  <nav class="tabs" id="tabs" aria-label="Navigasi Utama">
+    <button type="button" data-v="home" aria-current="page" title="Beranda: Rekomendasi teman belajar">
+      <span class="tab-icon" data-icon="house"></span>
+      <span class="tab-text">
+        <span class="tab-label">Beranda</span>
+        <span class="tab-sub">Rekomendasi teman</span>
+      </span>
+    </button>
+    <button type="button" data-v="search" aria-current="false" title="Cari: Cari teman dan grup dengan filter">
+      <span class="tab-icon" data-icon="search"></span>
+      <span class="tab-text">
+        <span class="tab-label">Cari</span>
+        <span class="tab-sub">Filter teman & grup</span>
+      </span>
+    </button>
+    <button type="button" data-v="groups" aria-current="false" title="Geng: Buat dan gabung Geng Belajar">
+      <span class="tab-icon" data-icon="users"></span>
+      <span class="tab-text">
+        <span class="tab-label">Geng</span>
+        <span class="tab-sub">Geng belajar</span>
+      </span>
+    </button>
+    <button type="button" data-v="chat" aria-current="false" title="Pesan: Chat dengan teman belajar">
+      <span class="tab-icon" data-icon="message-circle"></span>
+      <span class="tab-text">
+        <span class="tab-label">Pesan</span>
+        <span class="tab-sub">Chat & diskusi</span>
+      </span>
+    </button>
+    <button type="button" data-v="forum" aria-current="false" title="Forum: Tanya jawab publik">
+      <span class="tab-icon" data-icon="circle-help"></span>
+      <span class="tab-text">
+        <span class="tab-label">Forum</span>
+        <span class="tab-sub">Tanya jawab publik</span>
+      </span>
+    </button>
+    <button type="button" data-v="profile" aria-current="false" title="Profil: Ubah profil dan lihat status verifikasi">
+      <span class="tab-icon" data-icon="user"></span>
+      <span class="tab-text">
+        <span class="tab-label">Profil</span>
+        <span class="tab-sub">Pengaturan & badge</span>
+      </span>
+    </button>
+  </nav>
+
+  <!-- KONTEN UTAMA -->
+  <main id="main">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Menyiapkan ruang belajarmu...</p>
+    </div>
+  </main>
+
+  <!-- MODAL DIALOG & TOAST -->
+  <dialog id="dlg"><form id="dlg-form" method="dialog"></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

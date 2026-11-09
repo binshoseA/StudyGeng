@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyGeng: Find Your People. Learn Together.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="stage" id="stage" data-view="login">
+
+  <header class="top">
+    <span class="logo">Study<b>Geng</b></span>
+    <div style="display:flex;align-items:center;gap:.8rem;">
+      <span class="note">Find your people. Learn together.</span>
+      <a href="/dashboard.html#demo" class="btn ghost sm" style="text-decoration:none;display:inline-block;width:auto;margin:0;padding:.35rem .75rem;font-size:.8rem;">Coba Demo Frontend</a>
+    </div>
+  </header>
+
+  <!-- KIRI: headline + ilustrasi pintu & kunci -->
+  <section class="hero">
+    <p class="label" id="label">masuk</p>
+    <h1 id="headline"><b>Unlock</b> your space.</h1>
+
+    <svg class="scene" id="scene" viewBox="0 0 300 340" role="img" aria-label="Pintu terkunci dengan sebuah kunci di dekatnya">
+      <rect x="50" y="30" width="200" height="290" rx="4" class="frame"/>
+      <g id="room">
+        <rect x="60" y="40" width="180" height="280" class="room"/>
+        <circle cx="150" cy="160" r="46" class="sun"/>
+        <text x="150" y="165" text-anchor="middle" class="welcome">Welcome</text>
+      </g>
+      <g id="door">
+        <rect x="60" y="40" width="180" height="280" class="door"/>
+        <rect x="80" y="62" width="120" height="100" class="line"/>
+        <rect x="80" y="182" width="120" height="116" class="line"/>
+        <g id="handle"><circle cx="215" cy="190" r="7"/><rect x="195" y="188" width="20" height="4"/></g>
+        <circle cx="215" cy="225" r="5" class="hole"/>
+        <rect x="213" y="225" width="4" height="12" class="hole"/>
+      </g>
+      <g class="float"><g id="key"><g id="keyrot">
+        <circle cx="0" cy="0" r="13" class="keyc"/><circle cx="0" cy="0" r="5" class="keyh"/>
+        <rect x="13" y="-3" width="59" height="6" class="keyc"/>
+        <rect x="54" y="3" width="6" height="10" class="keyc"/><rect x="64" y="3" width="6" height="7" class="keyc"/>
+      </g></g></g>
+      <text x="50" y="338" class="fig">fig. 1 pintu menunggu kuncinya</text>
+    </svg>
+  </section>
+
+  <!-- KANAN: semua form -->
+  <section class="panel">
+
+    <!-- LOGIN -->
+    <form id="form-login" data-panel="login" novalidate>
+      <div class="field"><label for="l-email">Email</label>
+        <input id="l-email" name="email" type="email" autocomplete="email" placeholder="kamu@kampus.ac.id"><small class="err"></small></div>
+      <div class="field"><label for="l-pass">Password</label>
+        <div class="pw"><input id="l-pass" name="password" type="password" autocomplete="current-password"><button type="button" class="eye">Lihat</button></div><small class="err"></small></div>
+      <button type="button" class="link" data-go="forgot">Lupa password?</button>
+      <button class="btn" type="submit">Masuk</button>
+      <div class="google-btn-slot" id="g-login-slot">
+        <button class="btn ghost" type="button" data-google>Lanjut dengan Google</button>
+      </div>
+      <p class="switch">Belum punya akun? <button type="button" class="link" data-go="signup">Daftar</button></p>
+    </form>
+
+    <!-- SIGNUP -->
+    <form id="form-signup" data-panel="signup" novalidate hidden>
+      <div class="field"><label for="s-name">Nama lengkap</label><input id="s-name" name="name" autocomplete="name"><small class="err"></small></div>
+      <div class="field"><label for="s-email">Email</label><input id="s-email" name="email" type="email" autocomplete="email"><small class="err"></small></div>
+      <div class="field"><label for="s-pass">Password</label>
+        <div class="pw"><input id="s-pass" name="password" type="password" autocomplete="new-password" data-meter><button type="button" class="eye">Lihat</button></div>
+        <div class="meter"><span></span></div><small class="err"></small></div>
+      <div class="field"><label for="s-pass2">Ulangi password</label><input id="s-pass2" name="password2" type="password" autocomplete="new-password"><small class="err"></small></div>
+      <div class="field check"><label><input type="checkbox" name="terms"> Saya setuju dengan Syarat dan Ketentuan</label><small class="err"></small></div>
+      <button class="btn" type="submit">Buat akun</button>
+      <div class="google-btn-slot" id="g-signup-slot">
+        <button class="btn ghost" type="button" data-google>Daftar dengan Google</button>
+      </div>
+      <p class="switch">Sudah punya akun? <button type="button" class="link" data-go="login">Masuk</button></p>
+    </form>
+
+    <!-- OTP (dipakai signup & lupa password) -->
+    <form id="form-otp" data-panel="otp" novalidate hidden>
+      <p class="lead">Kami mengirim kode 6 digit ke <b id="otp-email"></b></p>
+      <div class="otp" id="otp" aria-label="Kode OTP 6 digit">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 1" autocomplete="one-time-code">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 2">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 3">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 4">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 5">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+        <div class="orb"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></div>
+      </div>
+      <p class="done" id="otp-msg" hidden>You're officially part of the geng!</p>
+      <button class="btn" type="submit">Verifikasi</button>
+      <button class="link" type="button" id="resend" disabled>Kirim ulang kode</button>
+    </form>
+
+    <!-- LUPA PASSWORD -->
+    <form id="form-forgot" data-panel="forgot" novalidate hidden>
+      <p class="lead">Masukkan email akunmu. Kami kirim kode untuk membuat password baru.</p>
+      <div class="field"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email"><small class="err"></small></div>
+      <button class="btn" type="submit">Kirim kode</button>
+      <button type="button" class="link" data-go="login">Kembali ke masuk</button>
+    </form>
+
+    <!-- PASSWORD BARU -->
+    <form id="form-reset" data-panel="reset" novalidate hidden>
+      <div class="field"><label for="r-pass">Password baru</label>
+        <div class="pw"><input id="r-pass" name="password" type="password" autocomplete="new-password" data-meter><button type="button" class="eye">Lihat</button></div>
+        <div class="meter"><span></span></div><small class="err"></small></div>
+      <div class="field"><label for="r-pass2">Ulangi password baru</label><input id="r-pass2" name="password2" type="password" autocomplete="new-password"><small class="err"></small></div>
+      <button class="btn" type="submit">Simpan password</button>
+    </form>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</main>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="script.js"></script>
+</body>
+</html>
