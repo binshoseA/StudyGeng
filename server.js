@@ -61,7 +61,13 @@ const q = async query => { const { data, error } = await query; if (error) throw
 const normEmail = v => String(v || "").trim().toLowerCase();
 const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) && v.length <= 254;
 const passwordOk = p => typeof p === "string" && p.length >= 8 && p.length <= 72; // batas bcrypt: 72
-const publicUser = u => ({ id: u.id, full_name: u.full_name, email: u.email, avatar_url: u.avatar_url });
+const publicUser = u => ({
+  id: u.id,
+  full_name: u.full_name,
+  email: u.email,
+  avatar_url: u.avatar_url,
+  institution: u.institution || ""
+});
 const findUser = email => q(supabase.from("users").select("*").eq("email", email).maybeSingle());
 
 class Cooldown extends Error {}
@@ -168,9 +174,11 @@ const auth = express.Router();
 
 auth.post("/register", registerLimiter, wrap(async (req, res) => {
   const name = String(req.body.name || "").trim();
+  const institution = String(req.body.institution || "").trim();
   const email = normEmail(req.body.email);
   const { password } = req.body;
   if (name.length < 2 || name.length > 80) return fail(res, 400, "Nama harus 2 sampai 80 karakter.");
+  if (institution && institution.length > 100) return fail(res, 400, "Asal universitas/sekolah maksimal 100 karakter.");
   if (!isEmail(email)) return fail(res, 400, "Format email belum benar.");
   if (!passwordOk(password)) return fail(res, 400, "Password harus 8 sampai 72 karakter.");
 
@@ -178,9 +186,29 @@ auth.post("/register", registerLimiter, wrap(async (req, res) => {
   if (existing?.is_verified) return fail(res, 409, "Email ini sudah terdaftar. Silakan masuk.");
 
   const password_hash = await bcrypt.hash(password, 12);
-  const user = existing // email belum terverifikasi: perbarui data & kirim kode baru
-    ? await q(supabase.from("users").update({ full_name: name, password_hash }).eq("id", existing.id).select().single())
-    : await q(supabase.from("users").insert({ full_name: name, email, password_hash }).select().single());
+  let user;
+  try {
+    user = existing
+      ? await q(supabase.from("users").update({ full_name: name, institution, password_hash }).eq("id", existing.id).select().single())
+      : await q(supabase.from("users").insert({ full_name: name, institution, email, password_hash }).select().single());
+  } catch (err) {
+    // Fallback jika kolom institution belum ditambahkan di tabel users
+    user = existing
+      ? await q(supabase.from("users").update({ full_name: name, password_hash }).eq("id", existing.id).select().single())
+      : await q(supabase.from("users").insert({ full_name: name, email, password_hash }).select().single());
+  }
+
+  // Simpan juga ke user_profiles agar langsung sinkron di profil
+  if (user?.id && institution) {
+    try {
+      await q(supabase.from("user_profiles").upsert({
+        user_id: user.id,
+        full_name: name,
+        institution,
+        updated_at: new Date().toISOString()
+      }));
+    } catch {}
+  }
 
   try { await issueOtp(user, "signup"); }
   catch (e) { if (e instanceof Cooldown) return fail(res, 429, "Tunggu sebentar sebelum minta kode baru."); throw e; }
@@ -518,30 +546,33 @@ profileRouter.post("/", requireAuth, wrap(async (req, res) => {
 
 profileRouter.get("/users", wrap(async (req, res) => {
   try {
+    const me = sessionUser(req);
     const users = await q(supabase.from("users").select("id, full_name, email, avatar_url, is_verified, created_at").limit(50));
     const profiles = await q(supabase.from("user_profiles").select("*").limit(50)).catch(() => []);
     const profMap = {};
     for (const pr of (profiles || [])) profMap[pr.user_id] = pr;
 
-    const result = (users || []).map((u, i) => {
-      const p = profMap[u.id];
-      return {
-        id: u.id,
-        name: u.full_name,
-        inst: p?.institution || "Institusi Pendidikan",
-        level: p?.level || "D3/S1",
-        subj: p?.subjects?.length ? p.subjects : ["Matematika", "Pemrograman"],
-        lang: p?.languages?.length ? p.languages : ["Indonesia"],
-        mode: p?.mode || "online",
-        env: p?.env || "diskusi",
-        sense: p?.sense || "visual",
-        km: (i * 3 + 2) % 15 + 1,
-        av: p?.availability?.length ? p.availability : ["Sen-Malam", "Rab-Malam", "Sab-Pagi"],
-        verified: u.is_verified || /\.(edu|sch\.id|ac\.id)$/i.test(u.email),
-        rating: 4.8,
-        n: 12
-      };
-    });
+    const result = (users || [])
+      .filter(u => !me || String(u.id) !== String(me.id))
+      .map((u, i) => {
+        const p = profMap[u.id];
+        return {
+          id: u.id,
+          name: u.full_name,
+          inst: p?.institution || "Institusi Pendidikan",
+          level: p?.level || "Pelajar",
+          subj: p?.subjects?.length ? p.subjects : [],
+          lang: p?.languages?.length ? p.languages : ["Indonesia"],
+          mode: p?.mode || "online",
+          env: p?.env || "diskusi",
+          sense: p?.sense || "visual",
+          km: (i * 3 + 2) % 15 + 1,
+          av: p?.availability || [],
+          verified: u.is_verified || /\.(edu|sch\.id|ac\.id)$/i.test(u.email),
+          rating: 5.0,
+          n: 0
+        };
+      });
     ok(res, { users: result });
   } catch (err) {
     console.warn("[Users GET]:", err.message);

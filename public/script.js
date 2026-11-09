@@ -208,6 +208,7 @@ $("#form-signup").addEventListener("submit", async e => {
   const f = e.target, btn = $(".btn", f);
   if (!allValid([
     check(f.name, f.name.value.trim().length >= 2 ? "" : "Nama minimal 2 huruf."),
+    check(f.institution, f.institution.value.trim().length >= 2 ? "" : "Asal universitas/sekolah wajib diisi."),
     check(f.email, isEmail(f.email.value.trim()) ? "" : "Format email belum benar."),
     check(f.password, f.password.value.length >= 8 ? "" : "Minimal 8 karakter."),
     check(f.password2, f.password2.value === f.password.value ? "" : "Password tidak sama."),
@@ -215,7 +216,12 @@ $("#form-signup").addEventListener("submit", async e => {
   ])) return;
 
   busy(btn, true);
-  const res = await call("/api/auth/register", { name: f.name.value.trim(), email: f.email.value.trim(), password: f.password.value });
+  const res = await call("/api/auth/register", {
+    name: f.name.value.trim(),
+    institution: f.institution.value.trim(),
+    email: f.email.value.trim(),
+    password: f.password.value
+  });
   busy(btn, false);
   if (!res.ok) return toast(res.message || "Pendaftaran gagal.", "error");
 

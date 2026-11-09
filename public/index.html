@@ -68,12 +68,13 @@
 
     <!-- SIGNUP -->
     <form id="form-signup" data-panel="signup" novalidate hidden>
-      <div class="field"><label for="s-name">Nama lengkap</label><input id="s-name" name="name" autocomplete="name"><small class="err"></small></div>
-      <div class="field"><label for="s-email">Email</label><input id="s-email" name="email" type="email" autocomplete="email"><small class="err"></small></div>
+      <div class="field"><label for="s-name">Nama lengkap</label><input id="s-name" name="name" autocomplete="name" required><small class="err"></small></div>
+      <div class="field"><label for="s-inst">Asal Universitas / Sekolah</label><input id="s-inst" name="institution" placeholder="Contoh: Universitas Indonesia, ITB, dsb." autocomplete="organization" required><small class="err"></small></div>
+      <div class="field"><label for="s-email">Email</label><input id="s-email" name="email" type="email" autocomplete="email" required><small class="err"></small></div>
       <div class="field"><label for="s-pass">Password</label>
-        <div class="pw"><input id="s-pass" name="password" type="password" autocomplete="new-password" data-meter><button type="button" class="eye">Lihat</button></div>
+        <div class="pw"><input id="s-pass" name="password" type="password" autocomplete="new-password" data-meter required><button type="button" class="eye">Lihat</button></div>
         <div class="meter"><span></span></div><small class="err"></small></div>
-      <div class="field"><label for="s-pass2">Ulangi password</label><input id="s-pass2" name="password2" type="password" autocomplete="new-password"><small class="err"></small></div>
+      <div class="field"><label for="s-pass2">Ulangi password</label><input id="s-pass2" name="password2" type="password" autocomplete="new-password" required><small class="err"></small></div>
       <div class="field check"><label><input type="checkbox" name="terms"> Saya setuju dengan Syarat dan Ketentuan</label><small class="err"></small></div>
       <button class="btn" type="submit">Buat akun</button>
       <div class="google-btn-slot" id="g-signup-slot">

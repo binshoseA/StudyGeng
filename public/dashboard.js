@@ -112,68 +112,16 @@ const SLOTS = ["Pagi", "Siang", "Malam"];
 const P = (id, name, inst, level, subj, lang, mode, env, sense, km, av, verified, rating, n) =>
   ({ id, name, inst, level, subj, lang, mode, env, sense, km, av, verified, rating, n });
 
-let PEOPLE = [
-  P(1, "Rara Anindya", "Kampus Nusantara", "D3/S1", ["Matematika", "Fisika"], ["Indonesia"], "online", "diskusi", "visual", 4, ["Sen-Malam", "Rab-Malam", "Sab-Pagi"], true, 4.8, 12),
-  P(2, "Dimas Pratama", "Politeknik Garuda", "D3/S1", ["Pemrograman", "UI/UX"], ["Indonesia", "English"], "offline", "hening", "visual", 7, ["Sel-Siang", "Kam-Malam", "Sab-Siang"], true, 4.6, 9),
-  P(3, "Salsa Putri", "SMAN 8 Kota", "SMA/SMK", ["Matematika", "Kimia", "Bahasa Inggris"], ["Indonesia"], "offline", "diskusi", "auditori", 3, ["Sen-Siang", "Rab-Siang", "Jum-Siang"], true, 4.9, 21),
-  P(4, "Kevin Wijaya", "Institut Cakrawala", "D3/S1", ["Ekonomi", "Bahasa Inggris"], ["English", "Indonesia"], "online", "diskusi", "auditori", 12, ["Sen-Malam", "Kam-Malam"], false, 4.2, 4),
-  P(5, "Nadia Rahma", "Universitas Harapan", "S2", ["Fisika", "Matematika", "Pemrograman"], ["English"], "online", "hening", "visual", 25, ["Sel-Malam", "Sab-Pagi", "Min-Pagi"], true, 4.7, 15),
-  P(6, "Bima Arya", "Kampus Nusantara", "D3/S1", ["Biologi", "Kimia"], ["Indonesia"], "offline", "hening", "visual", 9, ["Rab-Pagi", "Jum-Malam"], false, 4.4, 6),
-];
+let PEOPLE = []; // Hanya diisi oleh user asli dari database
 
 // Buat tanggal sesi realistis (hari ini & beberapa hari ke depan)
 const todayIso = new Date().toISOString().slice(0, 10);
 const tomorrowIso = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
 const next3DaysIso = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
 
-const SEED_GROUPS = [
-  {
-    id: "g1",
-    name: "Geng Kalkulus Malam",
-    subj: "Matematika",
-    pub: true,
-    master: "Rara Anindya",
-    members: ["Rara Anindya", "Salsa Putri"],
-    pending: [],
-    sessions: [
-      { title: "Review Turunan & Integral Parsial", at: `${todayIso}T19:30` },
-      { title: "Latihan Soal Ujian Tengah Semester", at: `${next3DaysIso}T20:00` }
-    ]
-  },
-  {
-    id: "g2",
-    name: "UI/UX Bareng & Design Sprint",
-    subj: "UI/UX",
-    pub: false,
-    master: "Dimas Pratama",
-    members: ["Dimas Pratama"],
-    pending: [],
-    sessions: [
-      { title: "Wireframing & Prototype Review", at: `${tomorrowIso}T14:00` }
-    ]
-  },
-];
+const SEED_GROUPS = [];
 
-const SEED_FORUM = [
-  {
-    id: "q1",
-    title: "Cara cepat paham limit fungsi trigonometri?",
-    body: "Aku selalu bingung saat ketemu bentuk 0/0 di limit sin dan tan. Ada tips cepat atau penurunan rumusnya?",
-    by: "Salsa Putri",
-    answers: [
-      { by: "Nadia Rahma", t: "Ingat rumus dasar lim x->0 sin(ax)/bx = a/b. Faktorkan dan kelompokkan bentuk sin/tan-nya lebih dulu!" }
-    ]
-  },
-  {
-    id: "q2",
-    title: "Rekomendasi roadmap belajar React & Express untuk pemula?",
-    body: "Lebih baik kuasai JavaScript DOM dulu atau langsung lompat ke komponen framework?",
-    by: "Kevin Wijaya",
-    answers: [
-      { by: "Dimas Pratama", t: "Sangat disarankan pahami array methods (map, filter, reduce), async/await, dan destructuring dulu sebelum masuk state React." }
-    ]
-  }
-];
+const SEED_FORUM = [];
 
 /* ===== 4. STATE & SKOR ===== */
 let user, S, KEY, cur = "home", chatId = null, verified = false;
@@ -454,9 +402,13 @@ function home() {
       ${rec.length ? `
         <div class="cards">${rec.map(card).join("")}</div>
       ` : `
-        <div class="empty">
-          <p><b>Belum ada teman belajar yang tersedia.</b></p>
-          <p class="meta">Gunakan menu Cari untuk menelusuri partner belajar lainnya.</p>
+        <div class="card empty-card" style="text-align:center;padding:3rem 1.5rem;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">🎓</div>
+          <h3 style="margin-bottom:.4rem;font-size:1.25rem;">Belum Ada Teman Belajar Lain Terdaftar</h3>
+          <p class="meta" style="max-width:480px;margin:0 auto 1.25rem;line-height:1.5;">Kamu adalah salah satu pengguna awal StudyGeng! Begitu ada teman atau pengguna lain yang mendaftar, kartu rekomendasi teman belajar dengan skor kecocokan akan otomatis muncul di sini.</p>
+          <button type="button" class="btn sm" data-act="go-search">
+            ${icon("search", 16)} Telusuri Menu Pencarian
+          </button>
         </div>
       `}
     </section>
@@ -505,7 +457,14 @@ function results() {
 
   $("#results").innerHTML = list.length
     ? list.map(card).join("")
-    : '<p class="empty">Tidak ada hasil yang cocok dengan filter saat ini. Coba longgarkan pilihan filtermu.</p>';
+    : (PEOPLE.length === 0
+        ? `<div class="card empty-card" style="text-align:center;padding:2.5rem 1rem;grid-column:1/-1;">
+             <p style="font-size:1.5rem;margin-bottom:.3rem;">🔍</p>
+             <h4>Belum Ada Pengguna Lain Terdaftar</h4>
+             <p class="meta">Belum ada pengguna lain di database. Begitu ada pengguna baru mendaftar, mereka akan otomatis muncul di sini!</p>
+           </div>`
+        : '<p class="empty" style="grid-column:1/-1;">Tidak ada hasil yang cocok dengan filter saat ini. Coba longgarkan pilihan filtermu.</p>'
+      );
 }
 
 /* ===== 6C. GENG BELAJAR ===== */
@@ -596,7 +555,15 @@ function groups() {
       </form>
     </details>
 
-    <div class="cards">${S.groups.map(groupCard).join("")}</div>
+    <div class="cards">
+      ${S.groups.length ? S.groups.map(groupCard).join("") : `
+        <div class="card" style="text-align:center;padding:2.5rem 1rem;grid-column:1/-1;">
+          <div style="font-size:2rem;margin-bottom:.5rem;">👥</div>
+          <h4>Belum Ada Geng Belajar</h4>
+          <p class="meta">Buat Geng Belajar pertamamu dengan klik "Buat Geng Belajar Baru" di atas!</p>
+        </div>
+      `}
+    </div>
   `;
 }
 
@@ -784,7 +751,7 @@ function forum() {
     </form>
 
     <div class="forum-list">
-      ${S.forum.map(q => `
+      ${S.forum.length ? S.forum.map(q => `
         <article class="card forum-card">
           <div class="forum-q-head">
             <b>${esc(q.title)}</b>
@@ -806,7 +773,13 @@ function forum() {
             <button class="btn sm">Jawab</button>
           </form>
         </article>
-      `).join("")}
+      `).join("") : `
+        <div class="card" style="text-align:center;padding:2.5rem 1rem;">
+          <div style="font-size:2rem;margin-bottom:.5rem;">💬</div>
+          <h4>Belum Ada Pertanyaan di Forum</h4>
+          <p class="meta">Punya kesulitan materi atau tugas? Jadilah yang pertama mengajukan pertanyaan di atas!</p>
+        </div>
+      `}
     </div>
   `;
 }
@@ -940,6 +913,47 @@ function ask(title, body, done) {
 }
 
 const acts = {
+  "new-chat"() {
+    const friends = PEOPLE.filter(p => String(p.id) !== String(user.id));
+    if (!friends.length) {
+      toast("Belum ada teman belajar lain yang terdaftar di sistem.");
+      return;
+    }
+    const listHtml = friends.map(p => `
+      <div class="friend-picker-item" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid var(--soft);">
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <span style="width:34px;height:34px;background:var(--navy);color:#fff;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.8rem;">
+            ${esc((p.name||'?').slice(0,2).toUpperCase())}
+          </span>
+          <div>
+            <b>${esc(p.name)}</b>
+            <div style="font-size:.78rem;color:#666;">${esc(p.inst||'Pelajar')} • ${esc((p.subj||[]).join(', '))}</div>
+          </div>
+        </div>
+        <button type="button" class="btn sm" data-act="open" data-id="${p.id}" onclick="document.getElementById('dlg').close();">
+          Chat
+        </button>
+      </div>
+    `).join('');
+
+    ask(
+      "Mulai Percakapan Baru",
+      `<div class="friend-picker-list" style="max-height:350px;overflow-y:auto;">
+        <p class="meta" style="margin-bottom:.8rem;">Pilih teman belajar untuk diajak berdiskusi:</p>
+        ${listHtml}
+      </div>`,
+      () => {}
+    );
+  },
+  "quick-send"(id, el) {
+    const text = el?.dataset?.msg;
+    if (!text) return;
+    const input = document.querySelector('.chat-send-form input');
+    if (input) {
+      input.value = text;
+      input.focus();
+    }
+  },
   async chat(id) {
     S.chats[id] ||= [];
     chatId = id;
@@ -1290,24 +1304,12 @@ function updateUserBadge() {
   verified = /\.(edu|sch\.id|ac\.id)$/i.test(user.email);
   $("#badge").innerHTML = verified ? `<span class="vb">${icon("shield-check", 13)} Terverifikasi</span>` : "";
 
-  KEY = "sg_state_v1_" + user.id;
+  KEY = "sg_state_real_v2_" + user.id;
   S = JSON.parse(localStorage.getItem(KEY) || "null") || {
-    profile: {
-      name: user.full_name || "Hosea Pratama",
-      inst: "Institut Teknologi",
-      level: "D3/S1",
-      subj: ["Matematika", "Pemrograman", "UI/UX"],
-      lang: ["Indonesia", "English"],
-      mode: "online",
-      env: "diskusi",
-      sense: "visual",
-      av: ["Sen-Malam", "Rab-Malam", "Sab-Pagi"]
-    },
-    groups: SEED_GROUPS,
-    chats: {
-      1: ["Halo Rara! Salam kenal, aku lihat jadwal kita sama-sama luang di Senin malam.", "Bisa janjian belajar kalkulus bareng?"]
-    },
-    forum: SEED_FORUM,
+    profile: null,
+    groups: [],
+    chats: {},
+    forum: [],
     reviews: {},
     blocked: [],
     reports: []
@@ -1325,19 +1327,19 @@ function updateUserBadge() {
 
       if (fRes?.ok) {
         const fd = await fRes.json().catch(() => ({}));
-        if (fd.questions?.length) S.forum = fd.questions;
+        S.forum = fd.questions || [];
       }
       if (gRes?.ok) {
         const gd = await gRes.json().catch(() => ({}));
-        if (gd.groups?.length) S.groups = gd.groups;
+        S.groups = gd.groups || [];
       }
       if (pRes?.ok) {
         const pd = await pRes.json().catch(() => ({}));
         if (pd.profile) {
           S.profile = {
-            name: pd.profile.full_name,
-            inst: pd.profile.institution,
-            level: pd.profile.level,
+            name: pd.profile.full_name || user.full_name,
+            inst: pd.profile.institution || user.institution || "",
+            level: pd.profile.level || "D3/S1",
             subj: pd.profile.subjects || [],
             lang: pd.profile.languages || ["Indonesia"],
             mode: pd.profile.mode || "online",
@@ -1345,19 +1347,45 @@ function updateUserBadge() {
             sense: pd.profile.sense || "visual",
             av: pd.profile.availability || []
           };
+        } else {
+          // Buat profil dasar otomatis dari user login
+          S.profile = {
+            name: user.full_name || "Pelajar",
+            inst: user.institution || "",
+            level: "D3/S1",
+            subj: [],
+            lang: ["Indonesia"],
+            mode: "online",
+            env: "diskusi",
+            sense: "visual",
+            av: []
+          };
         }
       }
       if (uRes?.ok) {
         const ud = await uRes.json().catch(() => ({}));
-        if (ud.users?.length) {
-          const realUsers = ud.users.filter(u => u.id !== user.id);
-          if (realUsers.length) {
-            PEOPLE = [...realUsers, ...PEOPLE.filter(p => !realUsers.some(ru => ru.id === p.id))];
-          }
+        if (ud.users) {
+          // Hanya user asli dari database (kecuali diri sendiri)
+          PEOPLE = ud.users.filter(u => String(u.id) !== String(user.id));
         }
       }
     } catch (e) {
       console.warn("[Sync Real Database]:", e);
+    }
+  } else {
+    // Mode demo jika tanpa login
+    if (!S.profile) {
+      S.profile = {
+        name: user.full_name || "Hosea Pratama",
+        inst: "Institut Teknologi",
+        level: "D3/S1",
+        subj: ["Matematika", "Pemrograman"],
+        lang: ["Indonesia"],
+        mode: "online",
+        env: "diskusi",
+        sense: "visual",
+        av: ["Sen-Malam", "Rab-Malam"]
+      };
     }
   }
 

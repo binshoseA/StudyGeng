@@ -8,12 +8,14 @@ create table if not exists public.users (
   id            uuid primary key default gen_random_uuid(),
   full_name     text not null check (char_length(full_name) between 2 and 80),
   email         text not null,
+  institution   text,                       -- asal universitas / sekolah
   password_hash text,                       -- kosong jika daftar pakai Google
   google_id     text unique,
   avatar_url    text,
   is_verified   boolean not null default false,
   created_at    timestamptz not null default now()
 );
+alter table public.users add column if not exists institution text;
 create unique index if not exists users_email_lower_key on public.users (lower(email));
 
 -- 2. VERIFIKASI EMAIL (OTP)
