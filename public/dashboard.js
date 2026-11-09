@@ -112,7 +112,7 @@ const SLOTS = ["Pagi", "Siang", "Malam"];
 const P = (id, name, inst, level, subj, lang, mode, env, sense, km, av, verified, rating, n) =>
   ({ id, name, inst, level, subj, lang, mode, env, sense, km, av, verified, rating, n });
 
-const PEOPLE = [
+let PEOPLE = [
   P(1, "Rara Anindya", "Kampus Nusantara", "D3/S1", ["Matematika", "Fisika"], ["Indonesia"], "online", "diskusi", "visual", 4, ["Sen-Malam", "Rab-Malam", "Sab-Pagi"], true, 4.8, 12),
   P(2, "Dimas Pratama", "Politeknik Garuda", "D3/S1", ["Pemrograman", "UI/UX"], ["Indonesia", "English"], "offline", "hening", "visual", 7, ["Sel-Siang", "Kam-Malam", "Sab-Siang"], true, 4.6, 9),
   P(3, "Salsa Putri", "SMAN 8 Kota", "SMA/SMK", ["Matematika", "Kimia", "Bahasa Inggris"], ["Indonesia"], "offline", "diskusi", "auditori", 3, ["Sen-Siang", "Rab-Siang", "Jum-Siang"], true, 4.9, 21),
@@ -369,7 +369,7 @@ const visible = () => PEOPLE.filter(p => !S.blocked.includes(p.id));
 function home() {
   const greeting = getTimeGreeting();
   const userName = me()?.name ? esc(me().name.split(" ")[0]) : "Kawan";
-  const rec = visible().filter(p => score(p) >= 80).sort((a, b) => score(b) - score(a));
+  const rec = visible().sort((a, b) => score(b) - score(a));
 
   return `
     <!-- HERO BERANDA: GREETING & PENJELASAN WEBSITE -->
@@ -386,7 +386,7 @@ function home() {
         
         <p class="home-desc">
           <b>StudyGeng</b> adalah platform cerdas untuk menemukan teman belajar (<i>study buddy</i>) 
-          dan membentuk kelompok belajar (<i>Geng Belajar</i>) dengan kecocokan tinggi berdasarkan 
+          dan membentuk kelompok belajar (<i>Geng Belajar</i>) yang saling mendukung berdasarkan 
           minat materi, gaya belajar, dan ketersediaan waktu. Belajar tak lagi sendirian, lebih seru dan konsisten!
         </p>
 
@@ -395,8 +395,8 @@ function home() {
           <div class="feat-item">
             <span class="feat-icon">${icon("sparkles", 18)}</span>
             <div class="feat-body">
-              <strong>Smart Matching 80%+</strong>
-              <small>Cocokkan subjek, gaya hening/diskusi, & jadwal otomatis.</small>
+              <strong>Partner Sefrekuensi</strong>
+              <small>Mencocokkan subjek minat, gaya belajar, & jadwal luang.</small>
             </div>
           </div>
           <div class="feat-item">
@@ -444,7 +444,7 @@ function home() {
       <div class="section-header-row">
         <div>
           <h2>Rekomendasi Teman Belajar</h2>
-          <p class="lead">Daftar calon study partner dengan kecocokan di atas 80% berdasarkan profil belajarmu.</p>
+          <p class="lead">Daftar calon study partner terdekat dan paling sefrekuensi dengan profil belajarmu.</p>
         </div>
         <button type="button" class="link-view-all" data-act="go-search">
           Lihat semua & filter ${icon("arrow-right", 14)}
@@ -455,8 +455,8 @@ function home() {
         <div class="cards">${rec.map(card).join("")}</div>
       ` : `
         <div class="empty">
-          <p><b>Belum ada teman dengan skor di atas 80%.</b></p>
-          <p class="meta">Coba lengkapi subjek minat dan jadwal di menu Profil, atau gunakan menu Cari untuk menyetel radius offline.</p>
+          <p><b>Belum ada teman belajar yang tersedia.</b></p>
+          <p class="meta">Gunakan menu Cari untuk menelusuri partner belajar lainnya.</p>
         </div>
       `}
     </section>
@@ -602,61 +602,166 @@ function groups() {
 
 /* ===== 6D. PESAN (CHAT) ===== */
 function chat() {
-  const ids = Object.keys(S.chats).filter(id => !S.blocked.includes(+id));
-  if (!ids.length) {
+  const allPeople = PEOPLE.filter(p => String(p.id) !== String(user.id));
+  const chatPeople = allPeople.length ? allPeople : PEOPLE;
+
+  // Cek apakah chatId valid
+  let activePeer = null;
+  if (chatId) {
+    activePeer = chatPeople.find(p => String(p.id) === String(chatId)) || person(chatId);
+  }
+  if (!activePeer && chatPeople.length) {
+    activePeer = chatPeople[0];
+    chatId = activePeer.id;
+  }
+
+  const msgs = activePeer ? (S.chats[String(chatId)] || []) : [];
+
+  // Render list kontak di sidebar
+  const contactList = chatPeople.map(p => {
+    const hasMsg = !!(S.chats[String(p.id)] && S.chats[String(p.id)].length);
+    const isActive = activePeer && String(p.id) === String(activePeer.id);
+    const lastMsgObj = hasMsg ? S.chats[String(p.id)].slice(-1)[0] : null;
+    const preview = lastMsgObj
+      ? esc(String(typeof lastMsgObj === 'string' ? lastMsgObj : (lastMsgObj.text || '')).slice(0, 32))
+      : esc(p.inst || (p.subj ? p.subj.join(', ') : 'Pelajar'));
+    const initials = esc((p.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase());
+
     return `
-      <div class="section-head">
-        <h2>${icon("message-circle", 24)} Pesan & Diskusi</h2>
-        <p class="empty">Belum ada percakapan aktif. Buka tab <b>Beranda</b> atau <b>Cari</b>, lalu klik tombol <b>Chat</b> pada profil teman belajar untuk memulai diskusi.</p>
+      <button class="chat-contact-btn ${isActive ? 'on' : ''}" data-act="open" data-id="${p.id}">
+        <span class="contact-avatar-wrap">
+          <span class="contact-avatar">${initials}</span>
+          <span class="avatar-online-dot"></span>
+        </span>
+        <span class="contact-info">
+          <span class="contact-top">
+            <span class="contact-name">${esc(p.name)}</span>
+            <span class="contact-role">${esc(p.level || 'Siswa')}</span>
+          </span>
+          <span class="contact-preview">${preview}</span>
+        </span>
+      </button>
+    `;
+  }).join('');
+
+  // Render isi obrolan
+  let chatWindowHtml = '';
+  if (activePeer) {
+    const initials = esc((activePeer.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase());
+    const bubbles = msgs.length
+      ? msgs.map(m => {
+          const isMe = m && m.from ? String(m.from) === String(user.id) : true;
+          const txt = typeof m === 'string' ? m : (m.text || '');
+          return `
+            <div class="m ${isMe ? 'me' : 'them'}">
+              <div class="m-text">${esc(txt)}</div>
+            </div>
+          `;
+        }).join('')
+      : `
+        <div class="chat-empty-convo">
+          <div class="chat-empty-icon">${icon('message-circle', 40)}</div>
+          <h4>Mulai obrolan dengan ${esc(activePeer.name)}</h4>
+          <p class="meta">Kirim sapaan pertama untuk mendiskusikan materi pelajaran, jadwal belajar bareng, atau tugas kelompok.</p>
+          <div class="chat-quick-replies">
+            <button type="button" class="btn ghost sm quick-reply" data-act="quick-send" data-msg="Halo! Mau belajar bareng topik ${esc(activePeer.subj?.[0] || 'ini')}?">
+              "Halo! Mau belajar bareng?"
+            </button>
+            <button type="button" class="btn ghost sm quick-reply" data-act="quick-send" data-msg="Hai! Kapan jadwal luang kamu minggu ini?">
+              "Kapan jadwal luangmu?"
+            </button>
+          </div>
+        </div>
+      `;
+
+    chatWindowHtml = `
+      <div class="chat-window">
+        <!-- Peer Top Bar -->
+        <div class="chat-peer-bar">
+          <div class="chat-peer-info">
+            <span class="chat-peer-avatar">${initials}</span>
+            <div class="chat-peer-details">
+              <b class="peer-title">${esc(activePeer.name)}</b>
+              <div class="peer-sub">
+                <span class="peer-badge-online">● Online</span>
+                <span class="peer-inst">${esc(activePeer.inst || 'Pelajar')}</span>
+              </div>
+            </div>
+          </div>
+          <div class="chat-peer-actions">
+            <button type="button" class="btn ghost sm" data-act="new-chat" title="Buka obrolan dengan teman lain">
+              ${icon('plus', 16)} Teman Lain
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Messages Area -->
+        <div class="msgs" id="msgs">
+          ${bubbles}
+        </div>
+
+        <!-- Sticky Send Form -->
+        <form class="chat-send-form" data-form="msg">
+          <input name="t" placeholder="Ketik pesan untuk ${esc(activePeer.name)}..." maxlength="500" required autocomplete="off" aria-label="Tulis pesan">
+          <button class="btn-send" type="submit" aria-label="Kirim Pesan">
+            ${icon('arrow-right', 20)}
+          </button>
+        </form>
+      </div>
+    `;
+  } else {
+    chatWindowHtml = `
+      <div class="chat-window chat-window-placeholder">
+        <div class="chat-empty-convo">
+          <div class="chat-empty-icon">${icon('message-circle', 48)}</div>
+          <h3>Pesan & Diskusi</h3>
+          <p class="meta">Pilih kontak di sebelah kiri atau klik tombol tambah untuk memulai percakapan baru dengan teman belajar.</p>
+          <button type="button" class="btn sm" data-act="new-chat">
+            ${icon('plus', 16)} Mulai Obrolan Baru
+          </button>
+        </div>
       </div>
     `;
   }
 
-  if (!ids.includes(String(chatId))) chatId = ids[0];
-  const activePeer = person(chatId) || { name: "Teman Belajar" };
-  const msgs = S.chats[chatId] || [];
-
   return `
-    <div class="section-head">
-      <h2>${icon("message-circle", 24)} Pesan & Diskusi</h2>
-      <p class="lead">Diskusikan topik, bahan ajar, dan kepastian jadwal sebelum memulai sesi belajar bersama.</p>
+    <div class="section-head chat-head">
+      <div>
+        <h2>${icon('message-circle', 24)} Pesan & Diskusi</h2>
+        <p class="lead">Kirim pesan langsung ke teman belajarmu untuk koordinasi materi dan jadwal.</p>
+      </div>
+      <button type="button" class="btn sm btn-new-chat-top" data-act="new-chat">
+        ${icon('plus', 16)} Mulai Obrolan Baru
+      </button>
     </div>
 
-    <div class="chat-container">
-      <div class="clist">
-        ${ids.map(id => {
-          const p = person(id) || { name: "User #" + id };
-          return `
-            <button class="chat-contact-btn ${id == chatId ? "on" : ""}" data-act="open" data-id="${id}">
-              <span class="contact-avatar">${esc(p.name.slice(0, 2).toUpperCase())}</span>
-              <span class="contact-name">${esc(p.name)}</span>
+    <div class="chat-wrap">
+      <div class="chat-container">
+
+        <!-- Sidebar Kontak -->
+        <div class="clist">
+          <div class="clist-header">
+            <div class="clist-title">
+              <span>${icon('message-circle', 18)} Obrolan</span>
+              <span class="clist-count">${chatPeople.length}</span>
+            </div>
+            <button type="button" class="btn-icon-plus" data-act="new-chat" title="Mulai obrolan baru dengan teman belajar">
+              ${icon('plus', 18)}
             </button>
-          `;
-        }).join("")}
-      </div>
+          </div>
 
-      <div class="chat-window">
-        <div class="chat-peer-bar">
-          <b>${esc(activePeer.name)}</b>
-          <small class="meta">${esc(activePeer.inst || "Pelajar")}</small>
+          <div class="clist-body">
+            ${contactList || `<p class="meta" style="padding:1rem">Belum ada teman belajar.</p>`}
+          </div>
         </div>
 
-        <div class="msgs" id="msgs">
-          ${msgs.length ? msgs.map(m => `<div class="m me">${esc(m)}</div>`).join("") : `
-            <p class="meta chat-hint">Mulai percakapan dengan ${esc(activePeer.name)}. Berikan sapaan dan tanyakan materi belajarnya!</p>
-          `}
-        </div>
+        <!-- Window Chat Utama -->
+        ${chatWindowHtml}
 
-        <form class="send chat-send-form" data-form="msg">
-          <input name="t" placeholder="Ketik pesan..." maxlength="500" required autocomplete="off" aria-label="Tulis pesan">
-          <button class="btn sm">Kirim</button>
-        </form>
-        <p class="meta chat-footer-note">Pesan tersimpan lokal di browser ini untuk kelancaran sesi belajarmu.</p>
       </div>
     </div>
   `;
 }
-
 /* ===== 6E. FORUM TANYA JAWAB ===== */
 function forum() {
   return `
@@ -835,15 +940,23 @@ function ask(title, body, done) {
 }
 
 const acts = {
-  chat(id) {
+  async chat(id) {
     S.chats[id] ||= [];
     chatId = id;
+    if (user?.id !== "demo") {
+      const res = await fetch(`/api/messages/peer/${id}`, { credentials: "include" }).catch(() => null);
+      if (res?.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.messages?.length) {
+          S.chats[id] = data.messages.map(m => ({ from: String(m.sender_id || m.from || ''), text: m.content || m.text || '' }));
+        }
+      }
+    }
     save();
     show("chat");
   },
-  open(id) {
-    chatId = id;
-    show("chat");
+  async open(id) {
+    await this.chat(id);
   },
   review(id) {
     ask(
@@ -872,18 +985,31 @@ const acts = {
       }
     );
   },
-  join(id) {
+  async join(id) {
+    if (user?.id !== "demo") {
+      await fetch(`/api/groups/${id}/join`, { method: "POST", credentials: "include" }).catch(() => null);
+    }
     const g = S.groups.find(x => x.id === id);
-    (g.pub ? g.members : g.pending).push(me().name);
+    if (g) (g.pub ? g.members : g.pending).push(me().name);
     save();
-    toast(g.pub ? "Berhasil bergabung ke Geng!" : "Permintaan bergabung telah dikirim.");
+    toast(g?.pub ? "Berhasil bergabung ke Geng!" : "Permintaan bergabung telah dikirim.");
     show("groups");
   },
-  approve(id, el) {
+  async approve(id, el) {
+    if (user?.id !== "demo") {
+      await fetch(`/api/groups/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ n: el.dataset.n })
+      }).catch(() => null);
+    }
     const g = S.groups.find(x => x.id === id);
-    g.pending = g.pending.filter(n => n !== el.dataset.n);
-    g.members.push(el.dataset.n);
-    save();
+    if (g) {
+      g.pending = g.pending.filter(n => n !== el.dataset.n);
+      g.members.push(el.dataset.n);
+      save();
+    }
     toast(`${el.dataset.n} diterima menjadi anggota.`);
     show("groups");
   },
@@ -893,7 +1019,7 @@ const acts = {
 };
 
 const forms = {
-  "f-profile"(d) {
+  async "f-profile"(d) {
     const p = {
       name: d.get("name").trim(),
       inst: d.get("inst").trim(),
@@ -912,6 +1038,15 @@ const forms = {
       : !p.av.length ? "Pilih minimal satu slot jadwal luang." : "";
     if (err) return ($("#pf-err").textContent = err);
 
+    if (user?.id !== "demo") {
+      fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(p)
+      }).catch(() => null);
+    }
+
     const first = !S.profile;
     S.profile = p;
     save();
@@ -919,52 +1054,133 @@ const forms = {
     toast("Profil berhasil disimpan.");
     show(first ? "home" : "profile");
   },
-  "f-group"(d) {
-    S.groups.unshift({
+  async "f-group"(d) {
+    const name = d.get("name").trim();
+    const subj = d.get("subj");
+    const pub = d.get("pub") === "1";
+    let newG = {
       id: "g" + Date.now(),
-      name: d.get("name").trim(),
-      subj: d.get("subj"),
-      pub: d.get("pub") === "1",
+      name,
+      subj,
+      pub,
       master: me().name,
       members: [me().name],
       pending: [],
       sessions: []
-    });
+    };
+    if (user?.id !== "demo") {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, subj, pub })
+      }).catch(() => null);
+      if (res?.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.group) newG = data.group;
+      }
+    }
+    S.groups.unshift(newG);
     save();
     toast("Geng baru berhasil dibuat!");
     show("groups");
   },
-  "f-q"(d) {
-    S.forum.unshift({
+  async "f-q"(d) {
+    const title = d.get("title").trim();
+    const body = d.get("body").trim();
+    let newQ = {
       id: "q" + Date.now(),
-      title: d.get("title").trim(),
-      body: d.get("body").trim(),
+      title,
+      body,
       by: me().name,
       answers: []
-    });
+    };
+    if (user?.id !== "demo") {
+      const res = await fetch("/api/forum", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, body })
+      }).catch(() => null);
+      if (res?.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.question) newQ = data.question;
+      }
+    }
+    S.forum.unshift(newQ);
     save();
-    toast("Pertanyaan berhasil diposting ke forum.");
+    toast("Pertanyaan berhasil diposting ke forum!");
     show("forum");
   },
-  session(d, f) {
-    const g = S.groups.find(x => x.id === f.dataset.id);
-    g.sessions.push({ title: d.get("title").trim(), at: d.get("at") });
-    g.sessions.sort((a, b) => a.at.localeCompare(b.at));
-    save();
+  async session(d, f) {
+    const gId = f.dataset.id;
+    const title = d.get("title").trim();
+    const at = d.get("at");
+    if (user?.id !== "demo") {
+      fetch(`/api/groups/${gId}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, at })
+      }).catch(() => null);
+    }
+    const g = S.groups.find(x => x.id === gId);
+    if (g) {
+      g.sessions.push({ title, at });
+      g.sessions.sort((a, b) => a.at.localeCompare(b.at));
+      save();
+    }
     toast("Sesi belajar berhasil ditambahkan.");
     show("groups");
   },
-  msg(d) {
-    S.chats[chatId].push(d.get("t").trim());
+  async msg(d) {
+    const t = d.get("t").trim();
+    const receiver = person(chatId) || { name: "Teman Belajar" };
+    if (user?.id !== "demo") {
+      fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ receiverId: chatId, receiverName: receiver.name, content: t })
+      }).catch(() => null);
+    }
+    if (!t) return;
+    S.chats[String(chatId)] ||= [];
+    S.chats[String(chatId)].push({ from: user.id, text: t });
     save();
-    show("chat");
+    // Reset input tanpa full re-render
+    const input = document.querySelector('.chat-send-form input');
+    if (input) input.value = '';
+    // Re-render hanya area msgs
+    const msgsEl = document.getElementById('msgs');
+    const activeMsgs = S.chats[String(chatId)] || [];
+    if (msgsEl) {
+      msgsEl.innerHTML = activeMsgs.map(m => {
+        const isMe = m && m.from ? String(m.from) === String(user.id) : true;
+        const txt = typeof m === 'string' ? m : (m.text || '');
+        return `<div class="m ${isMe ? 'me' : 'them'}">${esc(txt)}</div>`;
+      }).join('');
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    } else {
+      show("chat");
+    }
   },
-  answer(d, f) {
-    S.forum.find(x => x.id === f.dataset.id).answers.push({
-      by: me().name,
-      t: d.get("t").trim()
-    });
-    save();
+  async answer(d, f) {
+    const qId = f.dataset.id;
+    const t = d.get("t").trim();
+    if (user?.id !== "demo") {
+      fetch(`/api/forum/${qId}/answers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ t })
+      }).catch(() => null);
+    }
+    const q = S.forum.find(x => x.id === qId);
+    if (q) {
+      q.answers.push({ by: me().name, t });
+      save();
+    }
     toast("Jawaban terkirim.");
     show("forum");
   }
@@ -1096,6 +1312,54 @@ function updateUserBadge() {
     blocked: [],
     reports: []
   };
+
+  // Sinkronisasi data real dari database Supabase jika bukan akun demo
+  if (user.id !== "demo") {
+    try {
+      const [fRes, gRes, pRes, uRes] = await Promise.all([
+        fetch("/api/forum").catch(() => null),
+        fetch("/api/groups").catch(() => null),
+        fetch("/api/profile", { credentials: "include" }).catch(() => null),
+        fetch("/api/profile/users").catch(() => null)
+      ]);
+
+      if (fRes?.ok) {
+        const fd = await fRes.json().catch(() => ({}));
+        if (fd.questions?.length) S.forum = fd.questions;
+      }
+      if (gRes?.ok) {
+        const gd = await gRes.json().catch(() => ({}));
+        if (gd.groups?.length) S.groups = gd.groups;
+      }
+      if (pRes?.ok) {
+        const pd = await pRes.json().catch(() => ({}));
+        if (pd.profile) {
+          S.profile = {
+            name: pd.profile.full_name,
+            inst: pd.profile.institution,
+            level: pd.profile.level,
+            subj: pd.profile.subjects || [],
+            lang: pd.profile.languages || ["Indonesia"],
+            mode: pd.profile.mode || "online",
+            env: pd.profile.env || "diskusi",
+            sense: pd.profile.sense || "visual",
+            av: pd.profile.availability || []
+          };
+        }
+      }
+      if (uRes?.ok) {
+        const ud = await uRes.json().catch(() => ({}));
+        if (ud.users?.length) {
+          const realUsers = ud.users.filter(u => u.id !== user.id);
+          if (realUsers.length) {
+            PEOPLE = [...realUsers, ...PEOPLE.filter(p => !realUsers.some(ru => ru.id === p.id))];
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Sync Real Database]:", e);
+    }
+  }
 
   updateUserBadge();
   show("home");

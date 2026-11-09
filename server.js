@@ -296,7 +296,264 @@ auth.post("/reset-password", otpLimiter, wrap(async (req, res) => {
 auth.post("/logout", (req, res) => { res.clearCookie("sg_session", { path: "/" }); ok(res, { message: "Berhasil keluar." }); });
 auth.get("/me", requireAuth, (req, res) => ok(res, { user: publicUser(req.user) }));
 
+/* ===== 5B. REALTIME API: FORUM, CHAT, GROUPS, PROFILES ===== */
+
+// 1. FORUM TANYA JAWAB PUBLIK
+const forumRouter = express.Router();
+
+forumRouter.get("/", wrap(async (req, res) => {
+  try {
+    const questions = await q(supabase.from("forum_questions").select("*").order("created_at", { ascending: false }).limit(50));
+    if (!questions || !questions.length) return ok(res, { questions: [] });
+
+    const qIds = questions.map(q => q.id);
+    const answers = await q(supabase.from("forum_answers").select("*").in("question_id", qIds).order("created_at", { ascending: true })).catch(() => []);
+
+    const ansMap = {};
+    for (const a of (answers || [])) {
+      ansMap[a.question_id] ||= [];
+      ansMap[a.question_id].push({ id: a.id, by: a.author_name, t: a.content, created_at: a.created_at });
+    }
+
+    const result = questions.map(q => ({
+      id: q.id,
+      title: q.title,
+      body: q.body,
+      by: q.author_name,
+      created_at: q.created_at,
+      answers: ansMap[q.id] || []
+    }));
+    ok(res, { questions: result });
+  } catch (err) {
+    console.warn("[Forum GET]:", err.message);
+    ok(res, { questions: [] });
+  }
+}));
+
+forumRouter.post("/", requireAuth, wrap(async (req, res) => {
+  const title = String(req.body.title || "").trim();
+  const body = String(req.body.body || "").trim();
+  if (title.length < 3) return fail(res, 400, "Judul pertanyaan minimal 3 karakter.");
+
+  const inserted = await q(supabase.from("forum_questions").insert({
+    user_id: req.user.id,
+    author_name: req.user.full_name,
+    title,
+    body
+  }).select().single());
+
+  ok(res, { question: { ...inserted, by: inserted.author_name, answers: [] } });
+}));
+
+forumRouter.post("/:id/answers", requireAuth, wrap(async (req, res) => {
+  const content = String(req.body.t || req.body.content || "").trim();
+  if (!content) return fail(res, 400, "Jawaban tidak boleh kosong.");
+
+  const inserted = await q(supabase.from("forum_answers").insert({
+    question_id: req.params.id,
+    user_id: req.user.id,
+    author_name: req.user.full_name,
+    content
+  }).select().single());
+
+  ok(res, { answer: { id: inserted.id, by: inserted.author_name, t: inserted.content, created_at: inserted.created_at } });
+}));
+
+// 2. PESAN & DISKUSI (CHAT REAL ANTAR PENGGUNA)
+const messagesRouter = express.Router();
+
+messagesRouter.get("/peer/:peerId", requireAuth, wrap(async (req, res) => {
+  const myId = req.user.id;
+  const peerId = req.params.peerId;
+  try {
+    const msgs = await q(supabase.from("messages")
+      .select("*")
+      .or(`and(sender_id.eq.${myId},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${myId})`)
+      .order("created_at", { ascending: true })
+      .limit(100));
+    ok(res, { messages: msgs || [] });
+  } catch (err) {
+    console.warn("[Messages GET]:", err.message);
+    ok(res, { messages: [] });
+  }
+}));
+
+messagesRouter.post("/", requireAuth, wrap(async (req, res) => {
+  const { receiverId, receiverName, content } = req.body;
+  const text = String(content || "").trim();
+  if (!text) return fail(res, 400, "Pesan tidak boleh kosong.");
+
+  const msg = await q(supabase.from("messages").insert({
+    sender_id: req.user.id,
+    receiver_id: receiverId || req.user.id,
+    sender_name: req.user.full_name,
+    receiver_name: receiverName || "Teman Belajar",
+    content: text
+  }).select().single());
+
+  ok(res, { message: msg });
+}));
+
+// 3. GENG BELAJAR (GROUPS REAL)
+const groupsRouter = express.Router();
+
+groupsRouter.get("/", wrap(async (req, res) => {
+  try {
+    const list = await q(supabase.from("groups").select("*").order("created_at", { ascending: false }));
+    if (!list || !list.length) return ok(res, { groups: [] });
+
+    const gIds = list.map(g => g.id);
+    const sessions = await q(supabase.from("group_sessions").select("*").in("group_id", gIds).order("session_at", { ascending: true })).catch(() => []);
+
+    const sessMap = {};
+    for (const s of (sessions || [])) {
+      sessMap[s.group_id] ||= [];
+      sessMap[s.group_id].push({ id: s.id, title: s.title, at: s.session_at });
+    }
+
+    const result = list.map(g => ({
+      id: g.id,
+      name: g.name,
+      subj: g.subj,
+      pub: g.is_public,
+      master: g.master_name,
+      members: g.members || [],
+      pending: g.pending || [],
+      sessions: sessMap[g.id] || []
+    }));
+    ok(res, { groups: result });
+  } catch (err) {
+    console.warn("[Groups GET]:", err.message);
+    ok(res, { groups: [] });
+  }
+}));
+
+groupsRouter.post("/", requireAuth, wrap(async (req, res) => {
+  const { name, subj, pub } = req.body;
+  if (!name || name.trim().length < 3) return fail(res, 400, "Nama geng minimal 3 karakter.");
+
+  const inserted = await q(supabase.from("groups").insert({
+    name: name.trim(),
+    subj: subj || "Umum",
+    is_public: pub === true || pub === "1" || pub === 1,
+    master_id: req.user.id,
+    master_name: req.user.full_name,
+    members: [req.user.full_name],
+    pending: []
+  }).select().single());
+
+  ok(res, { group: { ...inserted, pub: inserted.is_public, master: inserted.master_name, sessions: [] } });
+}));
+
+groupsRouter.post("/:id/join", requireAuth, wrap(async (req, res) => {
+  const g = await q(supabase.from("groups").select("*").eq("id", req.params.id).maybeSingle());
+  if (!g) return fail(res, 404, "Geng tidak ditemukan.");
+
+  const nm = req.user.full_name;
+  if (g.is_public) {
+    if (!g.members.includes(nm)) g.members.push(nm);
+  } else {
+    if (!g.pending.includes(nm) && !g.members.includes(nm)) g.pending.push(nm);
+  }
+
+  await q(supabase.from("groups").update({ members: g.members, pending: g.pending }).eq("id", g.id));
+  ok(res, { success: true, pub: g.is_public });
+}));
+
+groupsRouter.post("/:id/approve", requireAuth, wrap(async (req, res) => {
+  const g = await q(supabase.from("groups").select("*").eq("id", req.params.id).maybeSingle());
+  if (!g || g.master_id !== req.user.id) return fail(res, 403, "Hanya Geng Master yang dapat menyetujui anggota.");
+
+  const targetName = req.body.n;
+  g.pending = (g.pending || []).filter(n => n !== targetName);
+  if (!g.members.includes(targetName)) g.members.push(targetName);
+
+  await q(supabase.from("groups").update({ members: g.members, pending: g.pending }).eq("id", g.id));
+  ok(res, { success: true });
+}));
+
+groupsRouter.post("/:id/sessions", requireAuth, wrap(async (req, res) => {
+  const { title, at } = req.body;
+  if (!title || !at) return fail(res, 400, "Judul dan waktu sesi wajib diisi.");
+
+  const inserted = await q(supabase.from("group_sessions").insert({
+    group_id: req.params.id,
+    title: title.trim(),
+    session_at: at
+  }).select().single());
+
+  ok(res, { session: { id: inserted.id, title: inserted.title, at: inserted.session_at } });
+}));
+
+// 4. PROFIL LENGKAP & PENGGUNA ASLI
+const profileRouter = express.Router();
+
+profileRouter.get("/", requireAuth, wrap(async (req, res) => {
+  try {
+    const prof = await q(supabase.from("user_profiles").select("*").eq("user_id", req.user.id).maybeSingle());
+    ok(res, { profile: prof || null });
+  } catch {
+    ok(res, { profile: null });
+  }
+}));
+
+profileRouter.post("/", requireAuth, wrap(async (req, res) => {
+  const p = req.body;
+  const upserted = await q(supabase.from("user_profiles").upsert({
+    user_id: req.user.id,
+    full_name: p.name || req.user.full_name,
+    institution: p.inst || "",
+    level: p.level || "D3/S1",
+    subjects: p.subj || [],
+    languages: p.lang || ["Indonesia"],
+    mode: p.mode || "online",
+    env: p.env || "diskusi",
+    sense: p.sense || "visual",
+    availability: p.av || [],
+    updated_at: new Date().toISOString()
+  }).select().single());
+
+  ok(res, { profile: upserted });
+}));
+
+profileRouter.get("/users", wrap(async (req, res) => {
+  try {
+    const users = await q(supabase.from("users").select("id, full_name, email, avatar_url, is_verified, created_at").limit(50));
+    const profiles = await q(supabase.from("user_profiles").select("*").limit(50)).catch(() => []);
+    const profMap = {};
+    for (const pr of (profiles || [])) profMap[pr.user_id] = pr;
+
+    const result = (users || []).map((u, i) => {
+      const p = profMap[u.id];
+      return {
+        id: u.id,
+        name: u.full_name,
+        inst: p?.institution || "Institusi Pendidikan",
+        level: p?.level || "D3/S1",
+        subj: p?.subjects?.length ? p.subjects : ["Matematika", "Pemrograman"],
+        lang: p?.languages?.length ? p.languages : ["Indonesia"],
+        mode: p?.mode || "online",
+        env: p?.env || "diskusi",
+        sense: p?.sense || "visual",
+        km: (i * 3 + 2) % 15 + 1,
+        av: p?.availability?.length ? p.availability : ["Sen-Malam", "Rab-Malam", "Sab-Pagi"],
+        verified: u.is_verified || /\.(edu|sch\.id|ac\.id)$/i.test(u.email),
+        rating: 4.8,
+        n: 12
+      };
+    });
+    ok(res, { users: result });
+  } catch (err) {
+    console.warn("[Users GET]:", err.message);
+    ok(res, { users: [] });
+  }
+}));
+
 app.use("/api/auth", auth);
+app.use("/api/forum", forumRouter);
+app.use("/api/messages", messagesRouter);
+app.use("/api/groups", groupsRouter);
+app.use("/api/profile", profileRouter);
 app.use("/api", (req, res) => fail(res, 404, "Endpoint tidak ditemukan."));
 app.use(express.static(path.join(__dirname, "public")));
 

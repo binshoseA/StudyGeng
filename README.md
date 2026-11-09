@@ -66,7 +66,7 @@ Navigasi utama dashboard dirancang responsif mengikuti spesifikasi file XLSX den
 
 | Menu | Ikon Lucide | Fungsi Spesifik | Implementasi pada Tampilan |
 | :--- | :---: | :--- | :--- |
-| **Beranda** | `house` | Rekomendasi teman belajar | Hero penjelasan platform, jam live, kalender melayang, & kartu kecocokan 80%+ |
+| **Beranda** | `house` | Rekomendasi teman belajar | Hero penjelasan platform, jam live, kalender melayang, & kartu rekomendasi sefrekuensi |
 | **Cari** | `search` | Cari teman dan grup dengan filter | Filter dinamis mata pelajaran, jenjang, bahasa, metode online/offline, & slider radius km |
 | **Geng** | `users` | Buat dan gabung Geng Belajar | Buat geng privat/publik, kelola anggota, tambah sesi, & sinkronisasi Google Calendar |
 | **Pesan** | `message-circle` | Chat dengan teman belajar | Antarmuka chat personal dengan kontak calon partner belajar sebelum menyepakati sesi |
@@ -83,7 +83,7 @@ Navigasi utama dashboard dirancang responsif mengikuti spesifikasi file XLSX den
 Halaman Beranda (`home`) dilengkapi dengan pengalaman visual modern:
 1. **Hero Penjelasan Platform**:
    * Headline dinamis dengan sapaan kontekstual waktu (*"Selamat Pagi ☀️"*, *"Selamat Siang 🌤️"*, *"Selamat Malam 🌙"*).
-   * Penjelasan ringkas platform StudyGeng beserta 4 pilar keunggulan (Smart Matching 80%+, Geng Belajar Terarah, Forum Tanya Jawab, dan Komunitas Terverifikasi).
+   * Penjelasan ringkas platform StudyGeng beserta 4 pilar keunggulan (Partner Sefrekuensi, Geng Belajar Terarah, Forum Tanya Jawab, dan Komunitas Terverifikasi).
 2. **Deteksi Zona Waktu Otomatis (*Auto Timezone*) & Jam Digital Real-Time**:
    * Membaca zona waktu browser perangkat secara otomatis (`Intl.DateTimeFormat`).
    * Menampilkan jam berdetik real-time (Jam:Menit:Detik) dengan lampu status hijau (*pulsing dot*).
