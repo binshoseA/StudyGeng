@@ -89,15 +89,32 @@ const mailer = env.SMTP_HOST ? nodemailer.createTransport({
 
 async function sendOtpEmail(to, code, purpose) {
   if (!mailer) {
-    if (isProd) throw new Error("SMTP belum dikonfigurasi");
-    console.log(`\n[DEV] Kode OTP (${purpose}) untuk ${to}: ${code}\n`); // mode belajar: lihat di terminal
+    console.log(`\n[DEV OTP] Kode OTP (${purpose}) untuk ${to}: ${code}\n`); // mode belajar: lihat di terminal
+    if (isProd) {
+      throw new Error("Layanan email OTP belum dikonfigurasi di server. Silakan gunakan Login dengan Google.");
+    }
     return;
   }
-  const title = purpose === "signup" ? "Verifikasi email StudyGeng" : "Reset password StudyGeng";
+  const title = purpose === "signup" ? "Verifikasi Email StudyGeng" : "Reset Password StudyGeng";
   await mailer.sendMail({
-    from: env.MAIL_FROM || env.SMTP_USER, to, subject: `${code} adalah kode StudyGeng kamu`,
-    text: `${title}\n\nKode kamu: ${code}\nBerlaku ${OTP_TTL_MIN} menit. Jangan bagikan kode ini ke siapa pun.`,
-    html: `<div style="font-family:sans-serif"><h2>${title}</h2><p style="font-size:32px;letter-spacing:8px;font-weight:700;color:#245BDB">${code}</p><p>Berlaku ${OTP_TTL_MIN} menit. Jangan bagikan kode ini ke siapa pun.</p></div>`,
+    from: env.MAIL_FROM || env.SMTP_USER,
+    to,
+    subject: `${code} adalah kode verifikasi StudyGeng kamu`,
+    text: `${title}\n\nKode verifikasi kamu: ${code}\n\nKode berlaku selama ${OTP_TTL_MIN} menit. Jangan bagikan kode ini kepada siapa pun.`,
+    html: `
+      <div style="font-family:'Segoe UI',Roboto,Helvetica,sans-serif;max-width:500px;margin:20px auto;padding:24px;border:2px solid #14264A;border-radius:4px;background:#F7F7F2;color:#20232A">
+        <h1 style="color:#14264A;font-size:24px;margin:0 0 6px">Study<b style="color:#245BDB">Geng</b></h1>
+        <p style="color:#5F6673;font-size:13px;margin:0 0 20px">Find Your People. Learn Together.</p>
+        <h2 style="color:#14264A;font-size:18px;margin:0 0 10px">${title}</h2>
+        <p style="font-size:14px;line-height:1.5">Gunakan kode 6 digit di bawah ini untuk menyelesaikan pendaftaran akun StudyGeng kamu:</p>
+        <div style="background:#fff;border:2px solid #245BDB;padding:16px;text-align:center;border-radius:4px;margin:20px 0;box-shadow:4px 4px 0 #14264A">
+          <span style="font-size:36px;letter-spacing:10px;font-weight:700;color:#245BDB;display:inline-block">${code}</span>
+        </div>
+        <p style="color:#5F6673;font-size:12px;line-height:1.5;margin:16px 0 0">
+          Kode ini berlaku selama <b>${OTP_TTL_MIN} menit</b>. Jangan pernah membagikan kode verifikasi ini kepada siapa pun.
+        </p>
+      </div>
+    `,
   });
 }
 
