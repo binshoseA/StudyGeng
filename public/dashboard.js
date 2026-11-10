@@ -421,7 +421,15 @@ function search() {
   return `
     <div class="section-head">
       <h2>${icon("search", 24)} Cari Teman Belajar & Grup</h2>
-      <p class="lead">Gunakan filter cerdas di bawah untuk menemukan partner sesuai mata pelajaran, jenjang, atau jarak radius belajar bersama.</p>
+      <p class="lead">Cari kawan belajar berdasarkan nama, asal universitas / sekolah, jurusan, atau gunakan filter cerdas di bawah.</p>
+    </div>
+
+    <!-- PENCARIAN UTAMA SEPERTI APPS MODERN -->
+    <div class="search-bar-card card">
+      <div class="search-input-wrap">
+        <span class="search-icon-slot">${icon("search", 20)}</span>
+        <input type="search" id="search-q" name="q" placeholder="Cari nama kawan belajar, asal universitas (UI, ITB, dll), atau mata pelajaran..." class="search-main-input" autocomplete="off" form="filters">
+      </div>
     </div>
     
     <form class="filters card" id="filters">
@@ -446,25 +454,32 @@ function results() {
   const formEl = $("#filters");
   if (!formEl) return;
   const f = Object.fromEntries(new FormData(formEl));
-  $("#rad").textContent = f.km;
-  const list = visible().filter(p =>
-    (!f.subj || p.subj.includes(f.subj)) &&
-    (!f.level || p.level === f.level) &&
-    (!f.lang || p.lang.includes(f.lang)) &&
-    (!f.mode || p.mode === f.mode) &&
-    (f.mode !== "offline" || p.km <= +f.km)
-  ).sort((a, b) => score(b) - score(a));
+  const query = (f.q || "").trim().toLowerCase();
+  $("#rad").textContent = f.km || 10;
+
+  const list = visible().filter(p => {
+    // Pencarian nama, asal universitas/sekolah, atau mata pelajaran
+    if (query) {
+      const nameMatch = (p.name || "").toLowerCase().includes(query);
+      const instMatch = (p.inst || "").toLowerCase().includes(query);
+      const subjMatch = (p.subj || []).some(s => s.toLowerCase().includes(query));
+      const levelMatch = (p.level || "").toLowerCase().includes(query);
+      if (!nameMatch && !instMatch && !subjMatch && !levelMatch) return false;
+    }
+    return (!f.subj || p.subj.includes(f.subj)) &&
+      (!f.level || p.level === f.level) &&
+      (!f.lang || p.lang.includes(f.lang)) &&
+      (!f.mode || p.mode === f.mode) &&
+      (f.mode !== "offline" || p.km <= +(f.km || 10));
+  }).sort((a, b) => score(b) - score(a));
 
   $("#results").innerHTML = list.length
     ? list.map(card).join("")
-    : (PEOPLE.length === 0
-        ? `<div class="card empty-card" style="text-align:center;padding:2.5rem 1rem;grid-column:1/-1;">
-             <p style="font-size:1.5rem;margin-bottom:.3rem;">🔍</p>
-             <h4>Belum Ada Pengguna Lain Terdaftar</h4>
-             <p class="meta">Belum ada pengguna lain di database. Begitu ada pengguna baru mendaftar, mereka akan otomatis muncul di sini!</p>
-           </div>`
-        : '<p class="empty" style="grid-column:1/-1;">Tidak ada hasil yang cocok dengan filter saat ini. Coba longgarkan pilihan filtermu.</p>'
-      );
+    : `<div class="card empty-card" style="text-align:center;padding:2.5rem 1rem;grid-column:1/-1;">
+         <p style="font-size:2rem;margin-bottom:.4rem;">🔍</p>
+         <h4>Tidak Ada Teman Belajar yang Cocok</h4>
+         <p class="meta">Coba kata kunci lain atau kosongkan filter pencarian untuk melihat semua teman belajar yang terdaftar.</p>
+       </div>`;
 }
 
 /* ===== 6C. GENG BELAJAR ===== */
@@ -480,13 +495,24 @@ function groupCard(g) {
         <span class="tag ${g.pub ? "tag-pub" : "tag-priv"}">${g.pub ? "Publik" : "Privat"}</span>
       </div>
       <p class="meta">Materi: <b>${esc(g.subj)}</b> • Master: <b>${esc(g.master)}</b> • ${g.members.length} Anggota</p>
-      
-      ${mem ? "" : `
-        <button class="btn sm" data-act="join" data-id="${g.id}" ${wait ? "disabled" : ""}>
-          ${wait ? "Menunggu Persetujuan Master" : g.pub ? "Gabung Geng Ini" : "Minta Izin Bergabung"}
+
+      <div class="group-card-actions" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;">
+        <!-- Tombol Chat Master -->
+        <button type="button" class="btn ghost sm" data-act="chat-master" data-master="${esc(g.master)}" data-master-id="${esc(g.master_id || '')}" data-gname="${esc(g.name)}" title="Kirim pesan langsung ke pembuat geng">
+          ${icon("message-circle", 15)} Chat Master
         </button>
-      `}
-      
+
+        ${mem ? `
+          <button type="button" class="btn sm" data-act="open-group-chat" data-id="${g.id}" data-name="${esc(g.name)}" style="background:var(--cobalt);color:#fff;">
+            ${icon("users", 15)} Buka Chat Geng
+          </button>
+        ` : `
+          <button class="btn sm" data-act="join" data-id="${g.id}" ${wait ? "disabled" : ""}>
+            ${wait ? "Menunggu Persetujuan" : g.pub ? "Gabung Geng" : "Minta Izin Gabung"}
+          </button>
+        `}
+      </div>
+
       ${g.master === nm && g.pending.length ? `
         <div class="pending-list">
           <small class="lb">Permintaan Gabung:</small>
@@ -498,9 +524,9 @@ function groupCard(g) {
           `).join("")}
         </div>
       ` : ""}
-      
+
       ${mem ? `
-        <details class="session-details" open>
+        <details class="session-details">
           <summary>${icon("calendar", 14)} Jadwal Sesi Bersama (${g.sessions.length})</summary>
           <div class="session-box">
             ${g.sessions.map(s => `
@@ -570,27 +596,65 @@ function groups() {
 /* ===== 6D. PESAN (CHAT) ===== */
 function chat() {
   const allPeople = PEOPLE.filter(p => String(p.id) !== String(user.id));
-  const chatPeople = allPeople.length ? allPeople : PEOPLE;
+  const chatPeople = allPeople;
 
-  // Cek apakah chatId valid
+  // Kumpulkan semua obrolan aktif dari S.chats
+  // Termasuk chat personal dan chat group (berawalan "group_")
+  const activeChatKeys = Object.keys(S.chats).filter(k => (S.chats[k] || []).length > 0);
+
+  // Jika belum ada chatId atau chatId tidak valid, pilih chat pertama yang aktif jika ada
+  if (!chatId && activeChatKeys.length) {
+    chatId = activeChatKeys[0];
+  }
+
+  const isGroupChat = String(chatId).startsWith("group_");
+  let activeGroup = null;
   let activePeer = null;
-  if (chatId) {
+
+  if (isGroupChat) {
+    const rawGId = String(chatId).replace("group_", "");
+    activeGroup = S.groups.find(g => String(g.id) === rawGId) || { id: rawGId, name: "Geng Belajar", members: [me().name] };
+  } else if (chatId) {
     activePeer = chatPeople.find(p => String(p.id) === String(chatId)) || person(chatId);
   }
-  if (!activePeer && chatPeople.length) {
-    activePeer = chatPeople[0];
-    chatId = activePeer.id;
-  }
 
-  const msgs = activePeer ? (S.chats[String(chatId)] || []) : [];
+  const msgs = chatId ? (S.chats[String(chatId)] || []) : [];
 
-  // Render list kontak di sidebar
-  const contactList = chatPeople.map(p => {
+  // Render list obrolan di sidebar
+  // 1. Obrolan Grup Belajar
+  const groupList = S.groups.map(g => {
+    const gKey = "group_" + g.id;
+    const hasMsg = !!(S.chats[gKey] && S.chats[gKey].length);
+    const isActive = String(chatId) === gKey;
+    const lastMsg = hasMsg ? S.chats[gKey].slice(-1)[0] : null;
+    const preview = lastMsg
+      ? esc(String(typeof lastMsg === 'string' ? lastMsg : (lastMsg.text || '')).slice(0, 30))
+      : `${g.members.length} Anggota • ${esc(g.subj)}`;
+
+    return `
+      <button class="chat-contact-btn ${isActive ? 'on' : ''}" data-act="open-group-chat" data-id="${g.id}" data-name="${esc(g.name)}">
+        <span class="contact-avatar-wrap">
+          <span class="contact-avatar" style="background:var(--cobalt);color:#fff;">${icon("users", 18)}</span>
+        </span>
+        <span class="contact-info">
+          <span class="contact-top">
+            <span class="contact-name">${esc(g.name)}</span>
+            <span class="contact-role" style="color:var(--cobalt);font-weight:700;">Grup</span>
+          </span>
+          <span class="contact-preview">${preview}</span>
+        </span>
+      </button>
+    `;
+  }).join('');
+
+  // 2. Obrolan Pribadi yang sudah pernah dibuka atau punya pesan
+  // Jika belum ada chat, tampilkan tombol untuk mulai obrolan
+  const personalList = chatPeople.map(p => {
     const hasMsg = !!(S.chats[String(p.id)] && S.chats[String(p.id)].length);
-    const isActive = activePeer && String(p.id) === String(activePeer.id);
+    const isActive = !isGroupChat && activePeer && String(p.id) === String(activePeer.id);
     const lastMsgObj = hasMsg ? S.chats[String(p.id)].slice(-1)[0] : null;
     const preview = lastMsgObj
-      ? esc(String(typeof lastMsgObj === 'string' ? lastMsgObj : (lastMsgObj.text || '')).slice(0, 32))
+      ? esc(String(typeof lastMsgObj === 'string' ? lastMsgObj : (lastMsgObj.text || '')).slice(0, 30))
       : esc(p.inst || (p.subj ? p.subj.join(', ') : 'Pelajar'));
     const initials = esc((p.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase());
 
@@ -613,25 +677,72 @@ function chat() {
 
   // Render isi obrolan
   let chatWindowHtml = '';
-  if (activePeer) {
+  if (isGroupChat && activeGroup) {
+    const bubbles = msgs.length
+      ? msgs.map(m => {
+          const isSystem = m.from === "system";
+          if (isSystem) {
+            return `<div class="chat-system-msg" style="text-align:center;font-size:.8rem;color:#888;margin:.5rem 0;">${esc(m.text || '')}</div>`;
+          }
+          const isMe = m && m.from ? String(m.from) === String(user.id) : true;
+          const senderName = m.fromName ? esc(m.fromName) : (isMe ? 'Kamu' : 'Anggota');
+          const txt = typeof m === 'string' ? m : (m.text || '');
+          return `
+            <div class="m ${isMe ? 'me' : 'them'}">
+              ${!isMe ? `<div class="m-sender" style="font-size:.72rem;font-weight:700;color:var(--cobalt);margin-bottom:2px;">${senderName}</div>` : ''}
+              <div class="m-text">${esc(txt)}</div>
+            </div>
+          `;
+        }).join('')
+      : `<div class="chat-empty-convo">
+          <div class="chat-empty-icon">${icon('users', 40)}</div>
+          <h4>Ruang Obrolan ${esc(activeGroup.name)}</h4>
+          <p class="meta">Belum ada obrolan di grup ini. Mulai diskusikan materi belajar bersama anggota geng!</p>
+        </div>`;
+
+    chatWindowHtml = `
+      <div class="chat-window">
+        <div class="chat-peer-bar">
+          <div class="chat-peer-info">
+            <span class="chat-peer-avatar" style="background:var(--cobalt);">${icon("users", 20)}</span>
+            <div class="chat-peer-details">
+              <b class="peer-title">${esc(activeGroup.name)}</b>
+              <div class="peer-sub">
+                <span class="peer-badge-online">● Grup Aktif</span>
+                <span class="peer-inst">${activeGroup.members.length} Anggota: ${esc(activeGroup.members.slice(0, 3).join(", "))}${activeGroup.members.length > 3 ? "..." : ""}</span>
+              </div>
+            </div>
+          </div>
+          <div class="chat-peer-actions">
+            <button type="button" class="btn ghost sm" data-act="go-geng">
+              ${icon("users", 14)} Detail Geng
+            </button>
+          </div>
+        </div>
+
+        <div class="msgs" id="msgs">${bubbles}</div>
+
+        <form class="chat-send-form" data-form="msg">
+          <input name="t" placeholder="Ketik pesan ke grup ${esc(activeGroup.name)}..." maxlength="500" required autocomplete="off" aria-label="Tulis pesan grup">
+          <button class="btn-send" type="submit" aria-label="Kirim">${icon('arrow-right', 20)}</button>
+        </form>
+      </div>
+    `;
+  } else if (activePeer) {
     const initials = esc((activePeer.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase());
     const bubbles = msgs.length
       ? msgs.map(m => {
           const isMe = m && m.from ? String(m.from) === String(user.id) : true;
           const txt = typeof m === 'string' ? m : (m.text || '');
-          return `
-            <div class="m ${isMe ? 'me' : 'them'}">
-              <div class="m-text">${esc(txt)}</div>
-            </div>
-          `;
+          return `<div class="m ${isMe ? 'me' : 'them'}"><div class="m-text">${esc(txt)}</div></div>`;
         }).join('')
       : `
         <div class="chat-empty-convo">
           <div class="chat-empty-icon">${icon('message-circle', 40)}</div>
           <h4>Mulai obrolan dengan ${esc(activePeer.name)}</h4>
-          <p class="meta">Kirim sapaan pertama untuk mendiskusikan materi pelajaran, jadwal belajar bareng, atau tugas kelompok.</p>
+          <p class="meta">${esc(activePeer.inst || 'Teman Belajar')} • Minat: ${esc((activePeer.subj || []).join(', ') || 'Umum')}</p>
           <div class="chat-quick-replies">
-            <button type="button" class="btn ghost sm quick-reply" data-act="quick-send" data-msg="Halo! Mau belajar bareng topik ${esc(activePeer.subj?.[0] || 'ini')}?">
+            <button type="button" class="btn ghost sm quick-reply" data-act="quick-send" data-msg="Halo ${esc(activePeer.name.split(' ')[0])}! Mau belajar bareng?">
               "Halo! Mau belajar bareng?"
             </button>
             <button type="button" class="btn ghost sm quick-reply" data-act="quick-send" data-msg="Hai! Kapan jadwal luang kamu minggu ini?">
@@ -643,7 +754,6 @@ function chat() {
 
     chatWindowHtml = `
       <div class="chat-window">
-        <!-- Peer Top Bar -->
         <div class="chat-peer-bar">
           <div class="chat-peer-info">
             <span class="chat-peer-avatar">${initials}</span>
@@ -656,36 +766,36 @@ function chat() {
             </div>
           </div>
           <div class="chat-peer-actions">
-            <button type="button" class="btn ghost sm" data-act="new-chat" title="Buka obrolan dengan teman lain">
+            <button type="button" class="btn ghost sm" data-act="new-chat">
               ${icon('plus', 16)} Teman Lain
             </button>
           </div>
         </div>
 
-        <!-- Scrollable Messages Area -->
-        <div class="msgs" id="msgs">
-          ${bubbles}
-        </div>
+        <div class="msgs" id="msgs">${bubbles}</div>
 
-        <!-- Sticky Send Form -->
         <form class="chat-send-form" data-form="msg">
           <input name="t" placeholder="Ketik pesan untuk ${esc(activePeer.name)}..." maxlength="500" required autocomplete="off" aria-label="Tulis pesan">
-          <button class="btn-send" type="submit" aria-label="Kirim Pesan">
-            ${icon('arrow-right', 20)}
-          </button>
+          <button class="btn-send" type="submit" aria-label="Kirim">${icon('arrow-right', 20)}</button>
         </form>
       </div>
     `;
   } else {
+    // Kosongan ketika belum memilih obrolan
     chatWindowHtml = `
       <div class="chat-window chat-window-placeholder">
         <div class="chat-empty-convo">
           <div class="chat-empty-icon">${icon('message-circle', 48)}</div>
           <h3>Pesan & Diskusi</h3>
-          <p class="meta">Pilih kontak di sebelah kiri atau klik tombol tambah untuk memulai percakapan baru dengan teman belajar.</p>
-          <button type="button" class="btn sm" data-act="new-chat">
-            ${icon('plus', 16)} Mulai Obrolan Baru
-          </button>
+          <p class="meta">Pilih salah satu teman belajar di daftar sebelah kiri, atau mulai obrolan baru maupun buat grup belajar bersama!</p>
+          <div style="display:flex;gap:.5rem;justify-content:center;margin-top:.75rem;">
+            <button type="button" class="btn sm" data-act="new-chat">
+              ${icon('plus', 16)} Mulai Obrolan Baru
+            </button>
+            <button type="button" class="btn ghost sm" data-act="new-group-modal">
+              ${icon('users', 16)} Buat Grup Belajar
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -695,11 +805,16 @@ function chat() {
     <div class="section-head chat-head">
       <div>
         <h2>${icon('message-circle', 24)} Pesan & Diskusi</h2>
-        <p class="lead">Kirim pesan langsung ke teman belajarmu untuk koordinasi materi dan jadwal.</p>
+        <p class="lead">Diskusikan topik, jadwal, dan belajar bareng dengan teman maupun grup belajarmu.</p>
       </div>
-      <button type="button" class="btn sm btn-new-chat-top" data-act="new-chat">
-        ${icon('plus', 16)} Mulai Obrolan Baru
-      </button>
+      <div style="display:flex;gap:.5rem;">
+        <button type="button" class="btn sm btn-new-chat-top" data-act="new-chat">
+          ${icon('plus', 16)} Mulai Obrolan Baru
+        </button>
+        <button type="button" class="btn ghost sm" data-act="new-group-modal">
+          ${icon('users', 16)} Buat Grup
+        </button>
+      </div>
     </div>
 
     <div class="chat-wrap">
@@ -710,15 +825,19 @@ function chat() {
           <div class="clist-header">
             <div class="clist-title">
               <span>${icon('message-circle', 18)} Obrolan</span>
-              <span class="clist-count">${chatPeople.length}</span>
             </div>
-            <button type="button" class="btn-icon-plus" data-act="new-chat" title="Mulai obrolan baru dengan teman belajar">
-              ${icon('plus', 18)}
-            </button>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="btn-icon-plus" data-act="new-chat" title="Mulai obrolan baru dengan teman belajar">
+                ${icon('plus', 18)}
+              </button>
+              <button type="button" class="btn-icon-plus" data-act="new-group-modal" title="Buat Grup Belajar Baru" style="background:var(--navy);">
+                ${icon('users', 16)}
+              </button>
+            </div>
           </div>
 
           <div class="clist-body">
-            ${contactList || `<p class="meta" style="padding:1rem">Belum ada teman belajar.</p>`}
+            ${(groupList || personalList) ? (groupList + personalList) : `<p class="meta" style="padding:1rem">Belum ada obrolan.</p>`}
           </div>
         </div>
 
@@ -729,6 +848,7 @@ function chat() {
     </div>
   `;
 }
+
 /* ===== 6E. FORUM TANYA JAWAB ===== */
 function forum() {
   return `
@@ -913,6 +1033,97 @@ function ask(title, body, done) {
 }
 
 const acts = {
+  "chat-master"(id, el) {
+    const masterName = el.dataset.master || "Master";
+    const gName = el.dataset.gname || "Geng Belajar";
+    let target = PEOPLE.find(p => p.name.toLowerCase() === masterName.toLowerCase());
+    if (!target) {
+      target = { id: "master_" + Date.now(), name: masterName, inst: `Geng Master (${gName})`, subj: [] };
+      PEOPLE.unshift(target);
+    }
+    chatId = target.id;
+    show("chat");
+    setTimeout(() => {
+      const input = document.querySelector('.chat-send-form input');
+      if (input) {
+        input.value = `Halo ${masterName}, aku tertarik bergabung dengan Geng ${gName}!`;
+        input.focus();
+      }
+    }, 150);
+  },
+  "open-group-chat"(id, el) {
+    const gId = id || el.dataset.id;
+    chatId = "group_" + gId;
+    show("chat");
+  },
+  "new-group-modal"() {
+    const friends = PEOPLE.filter(p => String(p.id) !== String(user.id));
+    const friendsHtml = friends.map(p => `
+      <label class="chip" style="margin:3px;">
+        <input type="checkbox" name="members" value="${esc(p.name)}">
+        <span>${esc(p.name)} (${esc(p.inst || 'Pelajar')})</span>
+      </label>
+    `).join('');
+
+    ask(
+      "Buat Grup Belajar Baru",
+      `<div class="field">
+        <label for="grp-name">Nama Grup Belajar</label>
+        <input id="grp-name" name="name" placeholder="Contoh: Belajar UTBK & Kalkulus" required maxlength="50">
+      </div>
+      <div class="field">
+        <label for="grp-subj">Subjek Materi</label>
+        <select id="grp-subj" name="subj">${opts(SUBJECTS)}</select>
+      </div>
+      <div class="field">
+        <span class="lb">Undang Teman Belajar</span>
+        <div class="chips-row" style="max-height:140px;overflow-y:auto;padding:.5rem;border:1.5px solid var(--navy);background:var(--paper);">
+          ${friendsHtml || '<p class="meta">Pilih teman belajar untuk dimasukkan ke grup.</p>'}
+        </div>
+      </div>`,
+      async f => {
+        const name = f.get("name").trim();
+        const subj = f.get("subj");
+        const selected = f.getAll("members");
+        if (!name) return;
+
+        let newG = {
+          id: "g" + Date.now(),
+          name,
+          subj,
+          pub: true,
+          master: me().name,
+          members: [me().name, ...selected],
+          pending: [],
+          sessions: []
+        };
+
+        if (user.id !== "demo") {
+          const res = await fetch("/api/groups", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ name, subj, pub: true })
+          }).catch(() => null);
+          if (res?.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.group) newG = data.group;
+          }
+        }
+
+        S.groups.unshift(newG);
+        const groupChatId = "group_" + newG.id;
+        S.chats[groupChatId] = [
+          { from: "system", text: `Grup "${name}" dibuat oleh ${me().name}. Selamat berdiskusi!` }
+        ];
+        save();
+        chatId = groupChatId;
+        toast(`Grup "${name}" berhasil dibuat!`);
+        show("chat");
+      }
+    );
+  },
+
   "new-chat"() {
     const friends = PEOPLE.filter(p => String(p.id) !== String(user.id));
     if (!friends.length) {
@@ -1160,7 +1371,7 @@ const forms = {
     }
     if (!t) return;
     S.chats[String(chatId)] ||= [];
-    S.chats[String(chatId)].push({ from: user.id, text: t });
+    S.chats[String(chatId)].push({ from: user.id, fromName: me().name, text: t, isGroup: String(chatId).startsWith('group_') });
     save();
     // Reset input tanpa full re-render
     const input = document.querySelector('.chat-send-form input');

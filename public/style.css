@@ -2116,3 +2116,66 @@ dialog h3 {
     box-shadow: 4px 4px 0 var(--navy);
   }
 }
+/* MODERN SEARCH BAR (CARI SEPERTI APPS UMUM) */
+.search-bar-card {
+  padding: .75rem 1rem;
+  margin-bottom: 1.25rem;
+  background: #ffffff;
+  border: 2px solid var(--navy);
+  box-shadow: 4px 4px 0 var(--navy);
+}
+
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.search-icon-slot {
+  display: grid;
+  place-items: center;
+  color: var(--cobalt);
+  flex-shrink: 0;
+}
+
+.search-main-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font: 500 1rem var(--body);
+  background: transparent;
+  color: var(--ink);
+  padding: .35rem 0;
+}
+
+.search-main-input::placeholder {
+  color: #888888;
+  font-size: .95rem;
+}
+
+/* GROUP CARD ACTIONS */
+.group-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: .75rem 0;
+}
+
+/* GROUP CHAT MESSAGES */
+.chat-system-msg {
+  text-align: center;
+  font-size: .8rem;
+  color: #777;
+  background: var(--soft);
+  padding: .35rem .75rem;
+  border-radius: 12px;
+  margin: .5rem auto;
+  max-width: 80%;
+}
+
+.m-sender {
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--cobalt);
+  margin-bottom: 2px;
+}
